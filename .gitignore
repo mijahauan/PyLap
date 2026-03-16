@@ -1,4 +1,6 @@
 *.pyc
+*.so
+build/
 
 
 Ionosphere/__pycache__/*
