@@ -333,7 +333,7 @@ static PyObject *buildOutput(int num_rays, int *nhops_attempted, int *npts_in_ra
       tmp = PyArray_ZEROS(1, nhops_dims, NPY_DOUBLE, 0);
       tmp_data = PyArray_DATA((PyArrayObject *)tmp);
 
-      stepmemcpyd(tmp_data, &ray_data[idx], num_rays * 9,
+      stepmemcpyd(tmp_data, &ray_data[idx], num_rays * 19,
                   nhops_attempted[ray_id]);
       PyDict_SetItemString(py_ray_data, rays_fields[field_id], tmp);
     }
