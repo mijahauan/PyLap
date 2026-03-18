@@ -206,7 +206,7 @@ static PyObject *raytrace_2d(PyObject *self, PyObject *args)
 
   int *nhops_attempted = (int *)malloc(num_rays * sizeof(int));
   int *npts_in_ray = (int *)malloc(num_rays * sizeof(int));
-  ray_data = (double *)malloc(19 * nhops * num_rays * sizeof(double));
+  ray_data = (double *)malloc(24 * nhops * num_rays * sizeof(double));
   ray_path_data = (double *)malloc(9 * MAX_POINTS_IN_RAY * num_rays * sizeof(double));
 
   int *ray_label = (int *)malloc(nhops * num_rays * sizeof(int));
@@ -333,7 +333,7 @@ static PyObject *buildOutput(int num_rays, int *nhops_attempted, int *npts_in_ra
       tmp = PyArray_ZEROS(1, nhops_dims, NPY_DOUBLE, 0);
       tmp_data = PyArray_DATA((PyArrayObject *)tmp);
 
-      stepmemcpyd(tmp_data, &ray_data[idx], num_rays * 19,
+      stepmemcpyd(tmp_data, &ray_data[idx], num_rays * 24,
                   nhops_attempted[ray_id]);
       PyDict_SetItemString(py_ray_data, rays_fields[field_id], tmp);
     }
