@@ -101,6 +101,7 @@ def create_module(name, libraries):
                       os.path.join('modules', 'include')],
         library_dirs=[pharlap_lib_path] + _extra_lib_dirs,
         libraries=libraries + _extra_libs,
+        extra_compile_args=["-Wno-error=incompatible-pointer-types"],
     ))
     print(f'  BUILD pylap.{name}')
 
