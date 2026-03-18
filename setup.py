@@ -17,35 +17,33 @@ except ImportError:
 _sys = platform.system()
 _machine = platform.machine()
 
+# PHaRLAP 4.7.4 ships GCC-compiled static libraries on all platforms.
+# We need gfortran runtime on both Linux and macOS.
+import subprocess, shutil
+
 if _sys == 'Linux':
     _lib_subdir = 'linux'
-    _intel_fortran_libs = ['ifcore', 'imf', 'iomp5', 'irc', 'svml']
 elif _sys == 'Darwin':
-    # PHaRLAP 4.7.4 ships two macOS variants:
-    #   maca — Apple Silicon (arm64)
-    #   maci — Intel (x86_64)
-    # The maca/maci static libs were compiled with GCC/gfortran and require
-    # the gfortran runtime (__gfortran_* symbols).  No Intel Fortran needed.
     _lib_subdir = 'maca' if _machine == 'arm64' else 'maci'
-    _intel_fortran_libs = []  # not needed
-    # Locate Homebrew gfortran runtime (required for __gfortran_* symbols).
-    import subprocess, shutil
-    _gfc = shutil.which('gfortran')
-    if _gfc:
-        _gfc_libdir = subprocess.check_output(
-            [_gfc, '-print-file-name=libgfortran.dylib'],
-            text=True
-        ).strip()
-        _gfc_libdir = os.path.dirname(_gfc_libdir)
-    else:
-        _gfc_libdir = '/opt/homebrew/lib/gcc/current'
-    _extra_darwin_lib_dirs = [_gfc_libdir]
-    _extra_darwin_libs = ['gfortran', 'gomp']
 else:
     raise OSError(f'Unsupported operating system: {_sys}')
 
-_extra_lib_dirs  = _extra_darwin_lib_dirs if _sys == 'Darwin' else []
-_extra_libs      = _extra_darwin_libs     if _sys == 'Darwin' else []
+# Locate gfortran runtime library directory.
+_extra_lib_dirs = []
+_gfc = shutil.which('gfortran')
+if _gfc:
+    _libname = 'libgfortran.dylib' if _sys == 'Darwin' else 'libgfortran.so'
+    _gfc_libdir = subprocess.check_output(
+        [_gfc, f'-print-file-name={_libname}'],
+        text=True
+    ).strip()
+    _gfc_libdir = os.path.dirname(_gfc_libdir)
+    if _gfc_libdir:
+        _extra_lib_dirs = [_gfc_libdir]
+elif _sys == 'Darwin':
+    _extra_lib_dirs = ['/opt/homebrew/lib/gcc/current']
+
+_extra_libs = ['gfortran', 'gomp']
 
 # ---------------------------------------------------------------------------
 # Locate PHaRLAP
@@ -63,15 +61,7 @@ pharlap_lib_path = os.path.join(pharlap_path, 'lib', _lib_subdir)
 if not os.path.isdir(pharlap_lib_path):
     raise OSError(f'PHaRLAP library path not found: {pharlap_lib_path}')
 
-# On Linux the Intel Fortran redistributable path is still required.
-intel_lib_dirs = []
-if _sys == 'Linux':
-    if 'LD_LIBRARY' not in os.environ:
-        raise OSError('Set LD_LIBRARY to the Intel Fortran redistributable lib dir on Linux.')
-    intel_path = os.environ['LD_LIBRARY']
-    if not os.path.isdir(intel_path):
-        raise OSError(f'LD_LIBRARY does not exist: {intel_path}')
-    intel_lib_dirs = [intel_path]
+# No Intel Fortran needed — PHaRLAP 4.7.4 libs are GCC-compiled on all platforms.
 
 # PHaRLAP 4.7.4 ships libiri2020 (consolidated; replaces iri2007/2012/2016).
 # Modules that needed legacy IRI versions are skipped when those libs are absent.
@@ -89,14 +79,13 @@ COMMON_GLOB = glob.glob('modules/source/common/*.c')
 
 
 def _libs(*base):
-    """Append Intel Fortran runtime libs on Linux; omit on macOS."""
-    return list(base) + _intel_fortran_libs
+    """Return the base PHaRLAP libs plus platform math lib."""
+    return list(base) + ['m']
 
 
 def create_module(name, libraries):
     """Register a C-extension module if all required native libs are present."""
     missing = [lib for lib in libraries if lib not in _available_libs
-               and lib not in _intel_fortran_libs
                and lib not in ('m',)]
     if missing:
         print(f'  SKIP  pylap.{name}  (missing PHaRLAP libs: {missing})')
@@ -110,7 +99,7 @@ def create_module(name, libraries):
         sources=[src] + COMMON_GLOB,
         include_dirs=[np.get_include(), pharlap_include_path,
                       os.path.join('modules', 'include')],
-        library_dirs=[pharlap_lib_path] + intel_lib_dirs + _extra_lib_dirs,
+        library_dirs=[pharlap_lib_path] + _extra_lib_dirs,
         libraries=libraries + _extra_libs,
     ))
     print(f'  BUILD pylap.{name}')
